@@ -1,3 +1,4 @@
 from django.contrib import admin
+from .models import Building, Elevator, Floor, Request
 
-# Register your models here.
+admin.site.register((Building, Elevator, Floor, Request))
