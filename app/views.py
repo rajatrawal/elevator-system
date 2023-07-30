@@ -16,12 +16,14 @@ from .serializers import (
 # django imports
 from django.shortcuts import render
 from django.db.models import Q, Func, F
+from django.db import transaction
 from .models import Building, Elevator, Request
 
 
 # A function to check existance of object if exist then return [True,object] else return [False,None]
 def check_exist(obj, id):
     # filtering object with id
+
     obj_list = obj.objects.filter(id=id)
     if obj_list.exists():
         return True, obj_list[0]
@@ -38,15 +40,16 @@ class BuildingAPI(viewsets.ModelViewSet):
             data = request.data
             serializer = BuildingSerializer(data=data)
             if serializer.is_valid():
-                serializer.save()
-                building = serializer.instance
-                # creating objects of elevator
-                for i in range(1, (int(data["no_of_elevators"]) + 1)):
-                    elevator = Elevator.objects.create(
-                        building=building, current_floor=0, elevator_no=i
-                    )
-                    elevator.save()
-                return Response({"data": serializer.data}, status=200)
+                with transaction.atomic():
+                    serializer.save()
+                    building = serializer.instance
+                    # creating objects of elevator
+                    for i in range(1, (int(data["no_of_elevators"]) + 1)):
+                        elevator = Elevator.objects.create(
+                            building=building, current_floor=0, elevator_no=i
+                        )
+                        elevator.save()
+                    return Response({"data": serializer.data}, status=200)
             return Response(
                 {
                     "status": 406,
@@ -98,57 +101,66 @@ class RequestAPI(viewsets.ModelViewSet):
                             direction = "up"
                         else:
                             direction = "down"
-                        elevators = Elevator.objects.filter(working_status="working")
-                        # Optimal elevator assingment start here
-                        # Fetching elevator according to its direction
-                        if direction == "up":
-                            elevators_fi = elevators.filter(
-                                Q(status=direction)
-                                & Q(current_floor__lte=current_floor)
+                        with transaction.atomic():
+                            elevators = Elevator.objects.select_for_update().filter(
+                                working_status="working"
                             )
-                        else:
-                            elevators_fi = elevators.filter(
-                                Q(status=direction)
-                                & Q(current_floor__gte=current_floor)
-                            )
-
-                        if not elevators_fi.exists():
-                            elevators_fi = elevators.filter(status="stoped")
-
-                        # The following logic call nearest elevator
-                        elevator = (
-                            elevators_fi.annotate(
-                                abs_diffrance=Func(
-                                    F("current_floor") - current_floor,
-                                    function="ABS",
+                            # Optimal elevator assingment start here
+                            # Fetching elevator according to its direction
+                            if direction == "up":
+                                elevators_fi = elevators.select_for_update().filter(
+                                    Q(status=direction)
+                                    & Q(current_floor__lte=current_floor)
                                 )
-                            )
-                            .order_by("abs_diffrance")
-                            .first()
-                        )
-                        # The following logic call nearest elevator if all elevators are busy
-                        if elevator is None:
-                            user_requests = Request.objects.filter(status="ongoing")
-                            closest_request = (
-                                user_requests.annotate(
+                            else:
+                                elevators_fi = elevators.select_for_update().filter(
+                                    Q(status=direction)
+                                    & Q(current_floor__gte=current_floor)
+                                )
+
+                            if not elevators_fi.exists():
+                                elevators_fi = elevators.select_for_update().filter(
+                                    status="stoped"
+                                )
+
+                            # The following logic call nearest elevator
+                            elevator = (
+                                elevators_fi.annotate(
                                     abs_diffrance=Func(
-                                        F("destination_floor") - current_floor,
+                                        F("current_floor") - current_floor,
                                         function="ABS",
                                     )
                                 )
                                 .order_by("abs_diffrance")
                                 .first()
                             )
-                            elevator = closest_request.elevator
-                        serializer.save()
-                        # Assigning closest elevator to request
-                        serializer.instance.direction = direction
-                        serializer.instance.elevator = elevator
-                        serializer.instance.save()
-                        # Changin elevator status
-                        elevator.status = direction
-                        elevator.save()
-                        return Response(data=serializer.data, status=HTTP_200_OK)
+                            # The following logic call nearest elevator if all elevators are busy
+                            if elevator is None:
+                                user_requests = (
+                                    Request.objects.select_for_update().filter(
+                                        status="ongoing"
+                                    )
+                                )
+                                closest_request = (
+                                    user_requests.annotate(
+                                        abs_diffrance=Func(
+                                            F("destination_floor") - current_floor,
+                                            function="ABS",
+                                        )
+                                    )
+                                    .order_by("abs_diffrance")
+                                    .first()
+                                )
+                                elevator = closest_request.elevator
+                            serializer.save()
+                            # Assigning closest elevator to request
+                            serializer.instance.direction = direction
+                            serializer.instance.elevator = elevator
+                            serializer.instance.save()
+                            # Changin elevator status
+                            elevator.status = direction
+                            elevator.save()
+                            return Response(data=serializer.data, status=HTTP_200_OK)
 
                     return Response(
                         {
@@ -191,22 +203,23 @@ class ChangeDoorAPI(APIView):
                 try:
                     # Fetching elevator and changing its door status
                     id = int(data["id"])
-                    elevator = Elevator.objects.get(id=id)
-                    if elevator.door_status == "open":
-                        elevator.door_status = "close"
-                    else:
-                        elevator.door_status = "open"
-                    elevator.save()
-                    serializer = ElevatorSerializer(elevator)
+                    with transaction.atomic():
+                        elevator = Elevator.objects.select_for_update().get(id=id)
+                        if elevator.door_status == "open":
+                            elevator.door_status = "close"
+                        else:
+                            elevator.door_status = "open"
+                        elevator.save()
+                        serializer = ElevatorSerializer(elevator)
 
-                    return Response(
-                        {
-                            "status": 200,
-                            "message": "door status changed successfully",
-                            "data": serializer.data,
-                        },
-                        status=HTTP_200_OK,
-                    )
+                        return Response(
+                            {
+                                "status": 200,
+                                "message": "door status changed successfully",
+                                "data": serializer.data,
+                            },
+                            status=HTTP_200_OK,
+                        )
                 except Exception:
                     return Response(
                         {
@@ -230,3 +243,6 @@ class ChangeDoorAPI(APIView):
                 },
                 status=HTTP_404_NOT_FOUND,
             )
+
+def index(request):
+    return render(request,'app/index.html')

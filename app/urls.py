@@ -10,5 +10,6 @@ router.register("request", views.RequestAPI, basename="request")
 
 urlpatterns = [    
     path('api/', include(router.urls)),
-    path('api/changeDoor/',views.ChangeDoorAPI.as_view(),name="change_door")
+    path('api/changeDoor/',views.ChangeDoorAPI.as_view(),name="change_door"),
+    path('',views.index,name="index")
 ]
