@@ -1,13 +1,9 @@
-from typing import Iterable, Optional
 from django.db import models
-from uuid import uuid4
-
 
 # base model to follow DRY principle
 class BaseModel(models.Model):
-    # uuid field to differentiate each model
-    id = models.AutoField(primary_key=True,verbose_name='id_')
-    
+    # id field to differentiate each model
+    id = models.AutoField(primary_key=True)
     # datetime field when the object was created
     created_at = models.DateTimeField(auto_now_add=True)
     # datetime field when the object was updated last time
@@ -15,7 +11,6 @@ class BaseModel(models.Model):
 
     class Meta:
         abstract = True
-
 
 # A specific building
 class Building(BaseModel):
@@ -28,7 +23,6 @@ class Building(BaseModel):
 
     def __str__(self):
         return self.name
-
 
 # An elevator object
 class Elevator(BaseModel):

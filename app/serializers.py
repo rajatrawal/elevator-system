@@ -20,6 +20,11 @@ class ElevatorSerializer(serializers.ModelSerializer):
         model = Elevator
         exclude = ("id", "created_at", "updated_at")
 
+class RequestSerializer2(serializers.ModelSerializer):
+    class Meta:
+        model = Request
+        exclude = ("id", "created_at", "updated_at")
+
 
 class RequestSerializer(ModelActionSerializer):
     class Meta:
