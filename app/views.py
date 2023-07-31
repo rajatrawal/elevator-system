@@ -11,7 +11,7 @@ from .serializers import (
     BuildingSerializer,
     ElevatorSerializer,
     RequestSerializer,
-    RequestSerializer2
+ 
 )
 
 # django imports
@@ -83,7 +83,7 @@ class RequestAPI(viewsets.ModelViewSet):
     def create(self, request, *args, **kwargs):
         try:
             data = request.data
-            serializer = RequestSerializer2(data=data)
+            serializer = RequestSerializer(data=data)
             if serializer.is_valid():
                 # A floor from request sent
                 current_floor = int(data["current_floor"])
