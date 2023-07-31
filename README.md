@@ -72,7 +72,7 @@ This api allow to fetch and create new building object.
 http://127.0.0.1:8000/api/building/
 ```
 
-This api allow to fetch and create new building object.
+This api allow to fetch, update, delete building object.
 
 > Allowed Methods ["GET", "PUT","DELETE"]
 
@@ -90,7 +90,7 @@ Though elevator objects are created automatically when building api is called, T
 http://127.0.0.1:8000/api/elevator/
 ```
 
-This api allow to fetch and create new elevator object.
+This api allow to fetch, update, delete elevator object.
 
 > Allowed Methods ["GET", "PUT","DELETE"]
 
@@ -108,7 +108,7 @@ Request api is used to call optimal elevator at that situation. This api allow t
 http://127.0.0.1:8000/api/request/
 ```
 
-This api allow to fetch and create new request object.
+This api allow to fetch, update, delete new request object.
 
 > Allowed Methods ["GET", "PUT","DELETE"]
 
